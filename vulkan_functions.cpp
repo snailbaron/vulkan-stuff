@@ -76,6 +76,35 @@ void loadExtensionInstanceFunction(
     checkPointer(ptr, "instance | " + std::string(extension), name);
 }
 
+template <class Ptr>
+void loadDeviceFunction(VkDevice device, Ptr* ptr, const char* name)
+{
+    *ptr = reinterpret_cast<Ptr>(vkGetDeviceProcAddr(device, name));
+    checkPointer(ptr, "device", name);
+}
+
+template <class Ptr>
+void loadExtensionDeviceFunction(
+    VkDevice device,
+    const std::vector<VkExtensionProperties>& enabledExtensions,
+    const char* extension,
+    Ptr* ptr,
+    const char* name)
+{
+    bool extensionEnabled = contains(enabledExtensions,
+        [extension] (const VkExtensionProperties& props) {
+            return std::string(props.extensionName) == std::string(extension);
+        });
+
+    if (!extensionEnabled) {
+        std::cerr << "WARNING: Cannot load device function '" << name <<
+            "': extension '" << extension << "'";
+    }
+
+    *ptr = reinterpret_cast<Ptr>(vkGetDeviceProcAddr(device, name));
+    checkPointer(ptr, "device | " + std::string(extension), name);
+}
+
 } // namespace
 
 void loadVulkanGlobalFunctions(HMODULE vulkanLibrary)
@@ -87,6 +116,9 @@ void loadVulkanGlobalFunctions(HMODULE vulkanLibrary)
     loadGlobalFunction(&NAME, #NAME);
 
 #define VULKAN_FUNCTION_INSTANCE(NAME)
+#define VULKAN_FUNCTION_EXT_INSTANCE(NAME, EXT)
+#define VULKAN_FUNCTION_DEVICE(NAME)
+#define VULKAN_FUNCTION_EXT_DEVICE(NAME, EXT)
 
 #define VULKAN_FUNCTION(NAME) CONCAT(VULKAN_FUNCTION_, VULKAN_FUNCTION_LEVEL)(NAME)
 #define VULKAN_FUNCTION_EXT(NAME, EXT)
@@ -95,7 +127,10 @@ void loadVulkanGlobalFunctions(HMODULE vulkanLibrary)
 
 #undef VULKAN_FUNCTION_EXT
 #undef VULKAN_FUNCTION
+#undef VULKAN_FUNCTION_DEVICE
+#undef VULKAN_FUNCTION_EXT_DEVICE
 #undef VULKAN_FUNCTION_INSTANCE
+#undef VULKAN_FUNCTION_EXT_INSTANCE
 #undef VULKAN_FUNCTION_EXPORT
 #undef VULKAN_FUNCTION_GLOBAL
 }
@@ -106,6 +141,8 @@ void loadVulkanInstanceFunctions(
 {
 #define VULKAN_FUNCTION_EXPORT(NAME)
 #define VULKAN_FUNCTION_GLOBAL(NAME)
+#define VULKAN_FUNCTION_DEVICE(NAME)
+#define VULKAN_FUNCTION_EXT_DEVICE(NAME, EXT)
 
 #define VULKAN_FUNCTION_INSTANCE(NAME) \
     loadInstanceFunction(instance, &NAME, #NAME);
@@ -118,11 +155,44 @@ void loadVulkanInstanceFunctions(
 
 #include "vulkan_function_list.inl"
 
+#undef VULKAN_FUNCTION_EXT_DEVICE
 #undef VULKAN_FUNCTION_EXT
 #undef VULKAN_FUNCTION
 #undef VULKAN_FUNCTION_INSTANCE
+#undef VULKAN_FUNCTION_EXT_INSTANCE
 #undef VULKAN_FUNCTION_EXPORT
 #undef VULKAN_FUNCTION_GLOBAL
+#undef VULKAN_FUNCTION_DEVICE
+}
+
+void loadVulkanDeviceFunctions(
+    VkDevice device,
+    const std::vector<VkExtensionProperties>& enabledExtensions)
+{
+#define VULKAN_FUNCTION_EXPORT(NAME)
+#define VULKAN_FUNCTION_GLOBAL(NAME)
+#define VULKAN_FUNCTION_INSTANCE(NAME)
+#define VULKAN_FUNCTION_EXT_INSTANCE(NAME, EXT)
+
+#define VULKAN_FUNCTION_DEVICE(NAME)    \
+    loadDeviceFunction(device, &NAME, #NAME);
+
+#define VULKAN_FUNCTION_EXT_DEVICE(NAME, EXT)   \
+    loadExtensionDeviceFunction(device, enabledExtensions, EXT, &NAME, #NAME);
+
+#define VULKAN_FUNCTION(NAME) CONCAT(VULKAN_FUNCTION_, VULKAN_FUNCTION_LEVEL)(NAME)
+#define VULKAN_FUNCTION_EXT(NAME, EXT) CONCAT(VULKAN_FUNCTION_EXT_, VULKAN_FUNCTION_LEVEL)(NAME, EXT)
+
+#include "vulkan_function_list.inl"
+
+#undef VULKAN_FUNCTION_EXT
+#undef VULKAN_FUNCTION
+#undef VULKAN_FUNCTION_EXT_DEVICE
+#undef VULKAN_FUNCTION_DEVICE
+#undef VULKAN_FUNCTION_INSTANCE
+#undef VULKAN_FUNCTION_EXT_INSTANCE
+#undef VULKAN_FUNCTION_GLOBAL
+#undef VULKAN_FUNCTION_EXPORT
 }
 
 #undef CONCAT

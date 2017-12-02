@@ -17,3 +17,7 @@ void loadVulkanGlobalFunctions(HMODULE vulkanLibrary);
 void loadVulkanInstanceFunctions(
     VkInstance instance,
     const std::vector<VkExtensionProperties>& enabledExtensions);
+
+void loadVulkanDeviceFunctions(
+    VkDevice device,
+    const std::vector<VkExtensionProperties>& enabledExtensions);
